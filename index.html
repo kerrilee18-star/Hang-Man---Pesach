@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chalkboard Hangman</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --chalk: #ffffff;
+            --board: #2c3e50;
+        }
+
+        body {
+            background-color: #1a252f;
+            background-image: url('https://www.transparenttextures.com/patterns/chalkboard.png');
+            color: var(--chalk);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex; flex-direction: column; align-items: center;
+            margin: 0; padding: 20px; touch-action: manipulation;
+        }
+
+        #game-container { width: 100%; max-width: 600px; text-align: center; }
+
+        .header { display: flex; justify-content: space-between; width: 100%; margin-bottom: 10px; border-bottom: 2px dashed white; padding-bottom: 10px; }
+        
+        #canvas-container { margin: 20px 0; }
+        canvas { border: 2px solid white; background: rgba(255,255,255,0.05); border-radius: 10px; width: 200px; height: 250px; }
+
+        .word-display { font-size: 2.5rem; letter-spacing: 12px; margin: 20px 0; min-height: 3rem; text-transform: uppercase; font-weight: bold; }
+        .translation { font-size: 1.2rem; color: #bdc3c7; height: 1.5rem; margin-bottom: 15px; }
+
+        .keyboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 8px; width: 100%; }
+        .key { 
+            background: transparent; border: 2px solid white; color: white; padding: 12px 5px; 
+            font-size: 1.2rem; cursor: pointer; border-radius: 5px; transition: 0.2s;
+        }
+        .key:disabled { opacity: 0.3; border-style: dotted; cursor: default; }
+        .key.correct { background: #27ae60; border-color: #27ae60; }
+        .key.wrong { background: #c0392b; border-color: #c0392b; }
+
+        #ui-overlay { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.85); z-index: 100; align-items: center; justify-content: center; flex-direction: column;
+        }
+        .result-box { background: #2c3e50; padding: 30px; border: 3px solid white; border-radius: 20px; text-align: center; }
+        .btn-next { background: white; color: black; border: none; padding: 15px 30px; font-weight: bold; border-radius: 10px; cursor: pointer; margin-top: 15px; }
+        
+        .audio-icon-btn { 
+            background: rgba(255,255,255,0.2); border: none; border-radius: 50%; 
+            width: 50px; height: 50px; cursor: pointer; color: white; font-size: 20px; margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div class="header">
+            <div>Round / סיבוב: <span id="round-num">1</span>/6</div>
+            <div>Score / ניקוד: <span id="score">0</span></div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="hangman" width="200" height="250"></canvas>
+        </div>
+
+        <div class="word-display" id="word-slots"></div>
+        <div class="translation" id="word-translation"></div>
+
+        <div id="keyboard" class="keyboard"></div>
+    </div>
+
+    <div id="ui-overlay">
+        <div class="result-box">
+            <h2 id="res-title">WELL DONE!</h2>
+            <p id="res-word"></p>
+            <p id="res-trans" style="font-size: 1.4rem; color: #bdc3c7;"></p>
+            <button class="audio-icon-btn" onclick="playWordAudio()">🔊</button><br>
+            <button class="btn-next" id="btn-action" onclick="nextRound()">Next Round / הבא</button>
+        </div>
+    </div>
+
+    <script>
+        const wordList = [
+            { en: "FROG", he: "צפרדע" },
+            { en: "BLOOD", he: "דם" },
+            { en: "TABLE", he: "שולחן" },
+            { en: "FOUR CUPS", he: "ארבע כוסות" },
+            { en: "WINE", he: "יין" },
+            { en: "SALT", he: "מלח" }
+        ];
+
+        let currentRound = 0;
+        let score = 0;
+        let mistakes = 0;
+        let guessedLetters = [];
+        let currentWord = "";
+        let currentTranslation = "";
+        let canPlay = true;
+
+        const bodyParts = ["The Base", "The Pole", "The Top Bar", "The Rope", "The Head", "The Body", "Left Arm", "Right Arm", "Left Leg", "Right Leg"];
+
+        function speak(text, slow = false) {
+            window.speechSynthesis.cancel();
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.lang = 'en-US';
+            msg.rate = slow ? 0.6 : 0.8;
+            window.speechSynthesis.speak(msg);
+        }
+
+        function initGame() {
+            currentWord = wordList[currentRound].en;
+            currentTranslation = wordList[currentRound].he;
+            guessedLetters = [];
+            mistakes = 0;
+            canPlay = true;
+            
+            document.getElementById('round-num').innerText = currentRound + 1;
+            document.getElementById('word-translation').innerText = "";
+            document.getElementById('ui-overlay').style.display = 'none';
+            
+            drawGallows();
+            renderWord();
+            renderKeyboard();
+        }
+
+        function renderWord() {
+            const display = currentWord.split('').map(letter => {
+                if (letter === " ") return "&nbsp;&nbsp;";
+                return guessedLetters.includes(letter) ? letter : "_";
+            }).join('');
+            document.getElementById('word-slots').innerHTML = display;
+        }
+
+        function renderKeyboard() {
+            const kb = document.getElementById('keyboard');
+            kb.innerHTML = '';
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('').forEach(l => {
+                const btn = document.createElement('button');
+                btn.className = 'key';
+                btn.innerText = l;
+                btn.onclick = () => handleGuess(l, btn);
+                kb.appendChild(btn);
+            });
+        }
+
+        function handleGuess(letter, btn) {
+            if (!canPlay) return;
+            speak(letter);
+            btn.disabled = true;
+
+            if (currentWord.includes(letter)) {
+                btn.classList.add('correct');
+                guessedLetters.push(letter);
+                renderWord();
+                checkWin();
+            } else {
+                btn.classList.add('wrong');
+                mistakes++;
+                drawMan();
+                speak(bodyParts[mistakes - 1], true);
+                if (mistakes >= 10) handleLoss();
+            }
+        }
+
+        function checkWin() {
+            const cleanWord = currentWord.replace(/\s/g, '');
+            const allGuessed = cleanWord.split('').every(l => guessedLetters.includes(l));
+            if (allGuessed) {
+                score++;
+                document.getElementById('score').innerText = score;
+                showResult("WELL DONE!", "כל הכבוד!");
+            }
+        }
+
+        function handleLoss() {
+            showResult("GAME OVER", "לא נורא!");
+        }
+
+        function showResult(title, sub) {
+            canPlay = false;
+            document.getElementById('ui-overlay').style.display = 'flex';
+            document.getElementById('res-title').innerText = title;
+            document.getElementById('res-word').innerText = currentWord;
+            document.getElementById('res-trans').innerText = currentTranslation;
+            
+            if(currentRound === 5) {
+                document.getElementById('btn-action').innerText = "View Final Score";
+            }
+            speak(currentWord);
+        }
+
+        function playWordAudio() {
+            speak(currentWord);
+        }
+
+        function nextRound() {
+            currentRound++;
+            if (currentRound < 6) {
+                initGame();
+            } else {
+                showFinalScore();
+            }
+        }
+
+        function showFinalScore() {
+            const overlay = document.getElementById('ui-overlay');
+            overlay.innerHTML = `
+                <div class="result-box">
+                    <h2>FINAL SCORE / ניקוד סופי</h2>
+                    <h1 style="font-size: 4rem;">${score}/6</h1>
+                    <button class="btn-next" onclick="location.reload()">Play Again / שחק שוב</button>
+                </div>
+            `;
+            confetti({ particleCount: 200, spread: 90 });
+        }
+
+        // --- DRAWING LOGIC ---
+        const canvas = document.getElementById('hangman');
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 3;
+
+        function drawGallows() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.setLineDash([5, 3]); // Chalk effect
+        }
+
+        function drawMan() {
+            ctx.beginPath();
+            ctx.setLineDash([]);
+            switch(mistakes) {
+                case 1: ctx.moveTo(20, 230); ctx.lineTo(180, 230); break; // Base
+                case 2: ctx.moveTo(50, 230); ctx.lineTo(50, 20); break;   // Pole
+                case 3: ctx.moveTo(50, 20); ctx.lineTo(150, 20); break;   // Top
+                case 4: ctx.moveTo(150, 20); ctx.lineTo(150, 50); break;  // Rope
+                case 5: ctx.arc(150, 70, 20, 0, Math.PI * 2); break;      // Head
+                case 6: ctx.moveTo(150, 90); ctx.lineTo(150, 160); break; // Body
+                case 7: ctx.moveTo(150, 110); ctx.lineTo(120, 140); break;// L Arm
+                case 8: ctx.moveTo(150, 110); ctx.lineTo(180, 140); break;// R Arm
+                case 9: ctx.moveTo(150, 160); ctx.lineTo(120, 200); break;// L Leg
+                case 10: ctx.moveTo(150, 160); ctx.lineTo(180, 200); break;// R Leg
+            }
+            ctx.stroke();
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
