@@ -40,14 +40,16 @@
         #menu-screen, #ui-overlay { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.95); z-index: 100; align-items: center; justify-content: center; flex-direction: column;
+            padding: 20px; text-align: center;
         }
-        #menu-screen { display: flex; background: var(--board); }
+        #menu-screen { display: flex; background: var(--board); overflow-y: auto; }
         .lvl-btn { 
             display: block; width: 220px; padding: 15px; margin: 10px; 
             background: transparent; border: 2px solid white; color: white; 
             font-size: 1.2rem; cursor: pointer; border-radius: 10px;
         }
         .lvl-btn:hover { background: white; color: var(--board); }
+        .instructions { font-size: 0.9rem; max-width: 400px; margin: 20px 0; line-height: 1.4; color: #bdc3c7; }
         .audio-icon-btn { background: #f39c12; border: none; border-radius: 50%; width: 60px; height: 60px; cursor: pointer; color: white; font-size: 24px; margin: 10px 0; }
         .btn-next { background: #fff; color: #000; border: none; padding: 12px 25px; font-weight: bold; border-radius: 8px; cursor: pointer; }
     </style>
@@ -55,18 +57,25 @@
 <body>
 
     <div id="menu-screen">
-        <h1 style="margin-bottom: 30px;">Choose a Level</h1>
-        <button class="lvl-btn" onclick="startLevel(1)">Level 1</button>
-        <button class="lvl-btn" onclick="startLevel(2)">Level 2</button>
-        <button class="lvl-btn" onclick="startLevel(3)">Level 3</button>
-        <button class="lvl-btn" onclick="startLevel(4)">Level 4</button>
+        <h1 style="font-size: 3rem; margin-bottom: 5px;">Hangman</h1>
+        <h2 style="margin-top: 0;">איש תלוי</h2>
+        
+        <div class="instructions">
+            <p><strong>English:</strong> Choose a level and guess the letters to reveal the Passover word. You have 13 tries!</p>
+            <p><strong>עברית:</strong> בחרו שלב ונחשו את האותיות כדי לגלות את המילה לפסח. יש לכם 13 ניסיונות!</p>
+        </div>
+
+        <button class="lvl-btn" onclick="startLevel(1)">Level 1 / שלב 1</button>
+        <button class="lvl-btn" onclick="startLevel(2)">Level 2 / שלב 2</button>
+        <button class="lvl-btn" onclick="startLevel(3)">Level 3 / שלב 3</button>
+        <button class="lvl-btn" onclick="startLevel(4)">Level 4 / שלב 4</button>
     </div>
 
     <div id="game-container" style="display:none;">
         <div class="header">
-            <button onclick="location.reload()" style="background:none; border:none; color:white; cursor:pointer; font-size:1rem;">⬅ Menu</button>
-            <div>Word: <span id="round-num">1</span>/6</div>
-            <div>Score: <span id="score">0</span></div>
+            <button onclick="location.reload()" style="background:none; border:none; color:white; cursor:pointer; font-size:1rem;">⬅ Menu / תפריט</button>
+            <div>Word / מילה: <span id="round-num">1</span>/6</div>
+            <div>Score / ניקוד: <span id="score">0</span></div>
         </div>
         <canvas id="hangman" width="220" height="260"></canvas>
         <div class="word-display" id="word-slots"></div>
@@ -75,11 +84,13 @@
 
     <div id="ui-overlay">
         <div class="result-box" id="result-content" style="text-align:center;">
-            <h2 id="res-title"></h2>
-            <h1 id="res-word" style="color: #f1c40f; text-transform: lowercase;"></h1>
-            <h2 id="res-trans" style="color: #ecf0f1;"></h2>
-            <button class="audio-icon-btn" onclick="playWordAudio()">🔊</button><br>
-            <button class="btn-next" onclick="nextRound()">Next / הבא</button>
+            <div id="round-result">
+                <h2 id="res-title"></h2>
+                <h1 id="res-word" style="color: #f1c40f; text-transform: lowercase;"></h1>
+                <h2 id="res-trans" style="color: #ecf0f1;"></h2>
+                <button class="audio-icon-btn" onclick="playWordAudio()">🔊</button><br>
+                <button class="btn-next" onclick="nextRound()">Next / הבא</button>
+            </div>
         </div>
     </div>
 
@@ -112,6 +123,15 @@
             guessedLetters = []; mistakes = 0; canPlay = true;
             document.getElementById('round-num').innerText = currentRound + 1;
             document.getElementById('ui-overlay').style.display = 'none';
+            // Reset round result view
+            document.getElementById('result-content').innerHTML = `
+                <div id="round-result">
+                    <h2 id="res-title"></h2>
+                    <h1 id="res-word" style="color: #f1c40f; text-transform: lowercase;"></h1>
+                    <h2 id="res-trans" style="color: #ecf0f1;"></h2>
+                    <button class="audio-icon-btn" onclick="playWordAudio()">🔊</button><br>
+                    <button class="btn-next" onclick="nextRound()">Next / הבא</button>
+                </div>`;
             drawGallows(); renderWord(); renderKeyboard();
         }
 
@@ -148,7 +168,7 @@
         function showResult(title, sub) {
             canPlay = false;
             document.getElementById('ui-overlay').style.display = 'flex';
-            document.getElementById('res-title').innerText = title;
+            document.getElementById('res-title').innerText = title + " " + sub;
             document.getElementById('res-word').innerText = currentWord;
             document.getElementById('res-trans').innerText = currentWords[currentRound].he;
             setTimeout(() => speak(currentWord), 400);
@@ -161,16 +181,18 @@
             if (currentRound < 6) {
                 initGame();
             } else {
-                // Hide game container to prevent "glitch" overlap
+                // FORCE HIDE game container to stop the corner-glitch
                 document.getElementById('game-container').style.display = 'none';
-                document.getElementById('ui-overlay').style.display = 'flex';
+                const overlay = document.getElementById('ui-overlay');
+                overlay.style.display = 'flex';
+                
                 document.getElementById('result-content').innerHTML = `
-                    <div style="color:white;">
-                        <h2>Final Score / ניקוד סופי</h2>
-                        <h1 style="font-size:4rem;">${score}/6</h1>
-                        <button class="btn-next" onclick="location.reload()">Back to Menu</button>
+                    <div style="color:white; padding: 20px;">
+                        <h2 style="font-size:2rem;">Final Score / ניקוד סופי</h2>
+                        <h1 style="font-size:5rem; margin: 20px 0; color: #f1c40f;">${score}/6</h1>
+                        <button class="btn-next" style="font-size: 1.5rem; padding: 15px 40px;" onclick="location.reload()">Back to Menu / חזרה לתפריט</button>
                     </div>`;
-                confetti({ particleCount: 150, spread: 60 });
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
             }
         }
 
@@ -184,19 +206,22 @@
         function drawMan() {
             ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.beginPath();
             switch(mistakes) {
-                case 1: ctx.arc(140, 70, 20, 0, Math.PI * 2); break;
-                case 2: ctx.moveTo(140, 90); ctx.lineTo(140, 160); break;
-                case 3: ctx.moveTo(140, 110); ctx.lineTo(110, 140); break;
-                case 4: ctx.moveTo(140, 110); ctx.lineTo(170, 140); break;
-                case 5: ctx.moveTo(140, 160); ctx.lineTo(115, 210); break;
-                case 6: ctx.moveTo(140, 160); ctx.lineTo(165, 210); break;
-                case 7: ctx.moveTo(133, 65); ctx.lineTo(135, 65); break;
-                case 8: ctx.moveTo(145, 65); ctx.lineTo(147, 65); break;
-                case 9: ctx.moveTo(140, 72); ctx.lineTo(140, 76); break;
-                case 10: ctx.arc(140, 80, 5, 0, Math.PI); break;
-                case 11: ctx.moveTo(110, 140); ctx.lineTo(106, 143); break;
-                case 12: ctx.moveTo(170, 140); ctx.lineTo(174, 143); break;
-                case 13: ctx.moveTo(130, 60); ctx.lineTo(150, 80); ctx.moveTo(150, 60); ctx.lineTo(130, 80); break;
+                case 1: ctx.arc(140, 70, 20, 0, Math.PI * 2); break; // Head
+                case 2: ctx.moveTo(140, 90); ctx.lineTo(140, 160); break; // Body
+                case 3: ctx.moveTo(140, 110); ctx.lineTo(110, 140); break; // L Arm
+                case 4: ctx.moveTo(140, 110); ctx.lineTo(170, 140); break; // R Arm
+                case 5: ctx.moveTo(140, 160); ctx.lineTo(115, 210); break; // L Leg
+                case 6: ctx.moveTo(140, 160); ctx.lineTo(165, 210); break; // R Leg
+                case 7: ctx.moveTo(133, 65); ctx.lineTo(135, 65); break; // L Eye
+                case 8: ctx.moveTo(145, 65); ctx.lineTo(147, 65); break; // R Eye
+                case 9: ctx.moveTo(140, 72); ctx.lineTo(140, 76); break; // Nose
+                case 10: ctx.arc(140, 80, 5, 0, Math.PI); break; // Mouth
+                case 11: ctx.beginPath(); ctx.arc(118, 70, 4, 0, Math.PI * 2); break; // L Ear
+                case 12: ctx.beginPath(); ctx.arc(162, 70, 4, 0, Math.PI * 2); break; // R Ear
+                case 13: 
+                    ctx.moveTo(132, 62); ctx.lineTo(138, 68); ctx.moveTo(138, 62); ctx.lineTo(132, 68); // X Eye 1
+                    ctx.moveTo(142, 62); ctx.lineTo(148, 68); ctx.moveTo(148, 62); ctx.lineTo(142, 68); // X Eye 2
+                    break; 
             }
             ctx.stroke();
         }
