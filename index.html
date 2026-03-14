@@ -56,10 +56,10 @@
 
     <div id="menu-screen">
         <h1 style="margin-bottom: 30px;">Choose a Level</h1>
-        <button class="lvl-btn" onclick="startLevel(1)">Level 1 (Plagues)</button>
-        <button class="lvl-btn" onclick="startLevel(2)">Level 2 (Exodus)</button>
-        <button class="lvl-btn" onclick="startLevel(3)">Level 3 (The Story)</button>
-        <button class="lvl-btn" onclick="startLevel(4)">Level 4 (Egypt)</button>
+        <button class="lvl-btn" onclick="startLevel(1)">Level 1</button>
+        <button class="lvl-btn" onclick="startLevel(2)">Level 2</button>
+        <button class="lvl-btn" onclick="startLevel(3)">Level 3</button>
+        <button class="lvl-btn" onclick="startLevel(4)">Level 4</button>
     </div>
 
     <div id="game-container" style="display:none;">
@@ -74,7 +74,7 @@
     </div>
 
     <div id="ui-overlay">
-        <div class="result-box" style="text-align:center;">
+        <div class="result-box" id="result-content" style="text-align:center;">
             <h2 id="res-title"></h2>
             <h1 id="res-word" style="color: #f1c40f; text-transform: lowercase;"></h1>
             <h2 id="res-trans" style="color: #ecf0f1;"></h2>
@@ -158,14 +158,18 @@
 
         function nextRound() {
             currentRound++;
-            if (currentRound < 6) initGame();
-            else {
-                document.getElementById('ui-overlay').innerHTML = `
-                <div class="result-box" style="text-align:center; color:white;">
-                    <h2>Final Score / ניקוד סופי</h2>
-                    <h1 style="font-size:4rem;">${score}/6</h1>
-                    <button class="btn-next" onclick="location.reload()">Back to Menu</button>
-                </div>`;
+            if (currentRound < 6) {
+                initGame();
+            } else {
+                // Hide game container to prevent "glitch" overlap
+                document.getElementById('game-container').style.display = 'none';
+                document.getElementById('ui-overlay').style.display = 'flex';
+                document.getElementById('result-content').innerHTML = `
+                    <div style="color:white;">
+                        <h2>Final Score / ניקוד סופי</h2>
+                        <h1 style="font-size:4rem;">${score}/6</h1>
+                        <button class="btn-next" onclick="location.reload()">Back to Menu</button>
+                    </div>`;
                 confetti({ particleCount: 150, spread: 60 });
             }
         }
