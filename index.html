@@ -37,12 +37,16 @@
         .key.correct { background: #27ae60; border-color: #27ae60; }
         .key.wrong { background: #c0392b; border-color: #c0392b; }
 
+        /* Fixed Overlay Glitch: Added top:0, left:0 and ensured it covers the whole screen */
         #menu-screen, #ui-overlay { 
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.95); z-index: 100; align-items: center; justify-content: center; flex-direction: column;
+            display: none; position: fixed; top: 0; left: 0; bottom: 0; right: 0;
+            width: 100vw; height: 100vh;
+            background: var(--board); z-index: 1000; align-items: center; justify-content: center; flex-direction: column;
             padding: 20px; text-align: center;
         }
-        #menu-screen { display: flex; background: var(--board); overflow-y: auto; }
+        #ui-overlay { background: rgba(0,0,0,0.95); }
+        #menu-screen { display: flex; }
+        
         .lvl-btn { 
             display: block; width: 220px; padding: 15px; margin: 10px; 
             background: transparent; border: 2px solid white; color: white; 
@@ -61,8 +65,8 @@
         <h2 style="margin-top: 0;">איש תלוי</h2>
         
         <div class="instructions">
-            <p><strong>English:</strong> Choose a level and guess the letters to reveal the Passover word. You have 13 tries!</p>
-            <p><strong>עברית:</strong> בחרו שלב ונחשו את האותיות כדי לגלות את המילה לפסח. יש לכם 13 ניסיונות!</p>
+            <p><strong>English:</strong> Choose a level and guess the letters to reveal the Passover word.</p>
+            <p><strong>עברית:</strong> בחרו שלב ונחשו את האותיות כדי לגלות את המילה לפסח.</p>
         </div>
 
         <button class="lvl-btn" onclick="startLevel(1)">Level 1 / שלב 1</button>
@@ -83,7 +87,7 @@
     </div>
 
     <div id="ui-overlay">
-        <div class="result-box" id="result-content" style="text-align:center;">
+        <div class="result-box" id="result-content" style="text-align:center; width: 100%;">
             <div id="round-result">
                 <h2 id="res-title"></h2>
                 <h1 id="res-word" style="color: #f1c40f; text-transform: lowercase;"></h1>
@@ -121,17 +125,9 @@
         function initGame() {
             currentWord = currentWords[currentRound].en.toLowerCase();
             guessedLetters = []; mistakes = 0; canPlay = true;
+            document.getElementById('game-container').style.display = 'block';
             document.getElementById('round-num').innerText = currentRound + 1;
             document.getElementById('ui-overlay').style.display = 'none';
-            // Reset round result view
-            document.getElementById('result-content').innerHTML = `
-                <div id="round-result">
-                    <h2 id="res-title"></h2>
-                    <h1 id="res-word" style="color: #f1c40f; text-transform: lowercase;"></h1>
-                    <h2 id="res-trans" style="color: #ecf0f1;"></h2>
-                    <button class="audio-icon-btn" onclick="playWordAudio()">🔊</button><br>
-                    <button class="btn-next" onclick="nextRound()">Next / הבא</button>
-                </div>`;
             drawGallows(); renderWord(); renderKeyboard();
         }
 
@@ -158,7 +154,7 @@
                         }
                     } else {
                         btn.classList.add('wrong'); mistakes++; drawMan();
-                        if (mistakes >= 13) showResult("Oh No!", "לא נורא!");
+                        if (mistakes >= 13) showResult("Good Try!", "לא נורא!");
                     }
                 };
                 kb.appendChild(btn);
@@ -181,7 +177,7 @@
             if (currentRound < 6) {
                 initGame();
             } else {
-                // FORCE HIDE game container to stop the corner-glitch
+                // Completely hide the game container and show final score
                 document.getElementById('game-container').style.display = 'none';
                 const overlay = document.getElementById('ui-overlay');
                 overlay.style.display = 'flex';
@@ -206,21 +202,21 @@
         function drawMan() {
             ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.beginPath();
             switch(mistakes) {
-                case 1: ctx.arc(140, 70, 20, 0, Math.PI * 2); break; // Head
-                case 2: ctx.moveTo(140, 90); ctx.lineTo(140, 160); break; // Body
-                case 3: ctx.moveTo(140, 110); ctx.lineTo(110, 140); break; // L Arm
-                case 4: ctx.moveTo(140, 110); ctx.lineTo(170, 140); break; // R Arm
-                case 5: ctx.moveTo(140, 160); ctx.lineTo(115, 210); break; // L Leg
-                case 6: ctx.moveTo(140, 160); ctx.lineTo(165, 210); break; // R Leg
-                case 7: ctx.moveTo(133, 65); ctx.lineTo(135, 65); break; // L Eye
-                case 8: ctx.moveTo(145, 65); ctx.lineTo(147, 65); break; // R Eye
-                case 9: ctx.moveTo(140, 72); ctx.lineTo(140, 76); break; // Nose
-                case 10: ctx.arc(140, 80, 5, 0, Math.PI); break; // Mouth
-                case 11: ctx.beginPath(); ctx.arc(118, 70, 4, 0, Math.PI * 2); break; // L Ear
-                case 12: ctx.beginPath(); ctx.arc(162, 70, 4, 0, Math.PI * 2); break; // R Ear
+                case 1: ctx.arc(140, 70, 20, 0, Math.PI * 2); break;
+                case 2: ctx.moveTo(140, 90); ctx.lineTo(140, 160); break;
+                case 3: ctx.moveTo(140, 110); ctx.lineTo(110, 140); break;
+                case 4: ctx.moveTo(140, 110); ctx.lineTo(170, 140); break;
+                case 5: ctx.moveTo(140, 160); ctx.lineTo(115, 210); break;
+                case 6: ctx.moveTo(140, 160); ctx.lineTo(165, 210); break;
+                case 7: ctx.moveTo(133, 65); ctx.lineTo(135, 65); break;
+                case 8: ctx.moveTo(145, 65); ctx.lineTo(147, 65); break;
+                case 9: ctx.moveTo(140, 72); ctx.lineTo(140, 76); break;
+                case 10: ctx.arc(140, 80, 5, 0, Math.PI); break;
+                case 11: ctx.beginPath(); ctx.arc(118, 70, 4, 0, Math.PI * 2); break;
+                case 12: ctx.beginPath(); ctx.arc(162, 70, 4, 0, Math.PI * 2); break;
                 case 13: 
-                    ctx.moveTo(132, 62); ctx.lineTo(138, 68); ctx.moveTo(138, 62); ctx.lineTo(132, 68); // X Eye 1
-                    ctx.moveTo(142, 62); ctx.lineTo(148, 68); ctx.moveTo(148, 62); ctx.lineTo(142, 68); // X Eye 2
+                    ctx.moveTo(132, 62); ctx.lineTo(138, 68); ctx.moveTo(138, 62); ctx.lineTo(132, 68);
+                    ctx.moveTo(142, 62); ctx.lineTo(148, 68); ctx.moveTo(148, 62); ctx.lineTo(142, 68);
                     break; 
             }
             ctx.stroke();
